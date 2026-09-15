@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduler</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #000000;
+            --surface-color: #121212;
+            --surface-hover: #1A1A1A;
+            --text-main: #FFFFFF;
+            --text-muted: #777777;
+            --accent-red: #EA2845;
+            --border-subtle: #222222;
+            
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: var(--font-ui); 
+            display: flex; 
+            justify-content: center; 
+            min-height: 100vh; 
+            padding: 40px 20px; 
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Sidebar & Overlay --- */
+        .menu-btn { 
+            position: fixed; 
+            top: 24px; 
+            left: 24px; 
+            width: 48px;
+            height: 48px;
+            background: var(--surface-color); 
+            border: 1px solid var(--border-subtle); 
+            color: var(--text-main);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer; 
+            z-index: 1001; 
+            transition: all 0.2s ease; 
+        }
+        .menu-btn:hover { 
+            background: var(--text-main); 
+            color: var(--bg-color); 
+            transform: scale(0.95);
+        }
+        
+        .sidebar-overlay { 
+            position: fixed; 
+            top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: rgba(0,0,0,0.7); 
+            backdrop-filter: blur(4px); 
+            z-index: 999; 
+            opacity: 0; visibility: hidden; 
+            transition: opacity 0.3s ease, visibility 0.3s ease; 
+        }
+        .sidebar-overlay.active { opacity: 1; visibility: visible; }
+        
+        .sidebar { 
+            position: fixed; 
+            top: 0; left: 0; width: 300px; height: 100vh; 
+            background-color: var(--surface-color); 
+            border-right: 1px solid var(--border-subtle); 
+            z-index: 1000; 
+            transform: translateX(-100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            padding: 100px 24px 24px; 
+            display: flex; flex-direction: column; gap: 8px; 
+        }
+        .sidebar.active { transform: translateX(0); }
+        
+        .sidebar-item { 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-size: 1rem; 
+            font-weight: 500; 
+            padding: 14px 20px;
+            border-radius: 12px;
+            transition: all 0.2s; 
+        }
+        .sidebar-item:hover { 
+            color: var(--text-main); 
+            background-color: var(--surface-hover);
+        }
+
+        /* --- Main Content --- */
+        .container { 
+            width: 100%; 
+            max-width: 540px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 32px; 
+            z-index: 10; 
+        }
+
+        .widget {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 24px;
+        }
+
+        /* --- Clock Section --- */
+        .clock-wrapper { text-align: center; margin-bottom: 10px; }
+        #clock { 
+            font-family: var(--font-mono);
+            font-size: 4.5rem; 
+            font-weight: 700; 
+            letter-spacing: -3px; 
+            line-height: 1;
+        }
+        #date { 
+            font-size: 0.9rem; 
+            font-weight: 500;
+            color: var(--text-muted); 
+            margin-top: 8px; 
+            text-transform: uppercase; 
+            letter-spacing: 2px;
+        }
+
+        /* --- Calendar Section --- */
+        .calendar-header { 
+            display: flex; justify-content: space-between; 
+            margin-bottom: 20px; font-weight: 600; font-size: 0.9rem;
+            color: var(--text-main); text-transform: uppercase; letter-spacing: 1px;
+        }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+        .day-name { color: var(--text-muted); font-size: 0.75rem; font-weight: 600; margin-bottom: 8px; }
+        .day { font-family: var(--font-mono); padding: 8px 0; font-size: 0.9rem; border-radius: 50px; color: var(--text-muted); transition: all 0.2s ease; }
+        .day.filled { color: var(--text-main); }
+        .day.active { background-color: var(--accent-red); color: #FFF; font-weight: 700; }
+
+        /* --- Tasks Section --- */
+        .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; display: inline-block; width: 8px; height: 8px; background-color: var(--accent-red); border-radius: 50%; }
+
+        .add-task-form { display: flex; gap: 12px; margin-bottom: 24px; }
+        .add-task-input { flex: 1; background: var(--surface-color); border: 1px solid var(--border-subtle); color: var(--text-main); font-family: var(--font-ui); padding: 14px 20px; border-radius: 999px; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+        .add-task-input:focus { border-color: var(--text-muted); }
+        .add-task-btn { background-color: var(--text-main); color: var(--bg-color); border: none; padding: 0 24px; font-family: var(--font-ui); font-weight: 600; border-radius: 999px; cursor: pointer; transition: transform 0.1s, background 0.2s; }
+        .add-task-btn:active { transform: scale(0.96); }
+
+        .task-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+        .task-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background-color: var(--surface-color); border-radius: 16px; transition: background 0.2s; }
+        .task-item:hover { background-color: var(--surface-hover); }
+        
+        .task-title-btn { 
+            background: none; border: none; font-family: var(--font-ui); 
+            font-size: 1rem; font-weight: 500; color: var(--text-main); 
+            text-align: left; cursor: pointer; flex: 1; outline: none; padding: 0;
+            transition: color 0.2s;
+        }
+        .task-title-btn.completed { text-decoration: line-through; color: var(--text-muted); font-style: italic; }
+        
+        .task-actions { display: flex; gap: 12px; align-items: center; }
+        .focus-btn { background-color: var(--border-subtle); color: var(--text-main); text-decoration: none; padding: 6px 16px; font-size: 0.8rem; font-weight: 600; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s; }
+        .focus-btn:hover { background-color: var(--text-main); color: var(--bg-color); }
+        
+        .delete-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem; line-height: 1; transition: color 0.2s; }
+        .delete-btn:hover { color: var(--accent-red); }
+        
+        .empty-state { color: var(--text-muted); text-align: center; padding: 30px 0; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <!-- Floating Menu Button -->
+    <button class="menu-btn" id="menu-btn" aria-label="Toggle Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <line x1="4" y1="6" x2="20" y2="6"></line>
+            <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+    </button>
+
+    <!-- Sidebar & Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <div class="sidebar" id="sidebar">
+        <a href="#" class="sidebar-item" style="color: var(--text-main); background: var(--border-subtle);">Dashboard</a>
+        <a href="#" class="sidebar-item">Analytics</a>
+        <a href="#" class="sidebar-item">Settings</a>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        
+        <!-- Header / Clock -->
+        <div class="clock-wrapper">
+            <div id="clock">00:00</div>
+            <div id="date">DAY, MON DD, YYYY</div>
+        </div>
+
+        <!-- Calendar Widget -->
+        <div class="widget">
+            <div class="calendar-header"><span id="cal-month-year"></span></div>
+            <div class="calendar-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Tasks Section -->
+        <div>
+            <div class="section-title">TASKS</div>
+            
+            <form method="POST" class="add-task-form">
+                {% csrf_token %}
+                <input type="text" name="title" class="add-task-input" placeholder="What needs to be done?" required autocomplete="off">
+                <button type="submit" name="add_task" class="add-task-btn">Add</button>
+            </form>
+
+            <ul class="task-list">
+                {% for task in tasks %}
+                    <li class="task-item">
+                        <form method="POST" style="flex:1; display:flex; align-items:center;">
+                            {% csrf_token %}
+                            <input type="hidden" name="task_id" value="{{ task.id }}">
+                            <button type="submit" name="toggle_task" class="task-title-btn {% if task.is_completed %}completed{% endif %}">
+                                {{ task.title }}
+                            </button>
+                        </form>
+
+                        <div class="task-actions">
+                            <a href="{% url 'focus_timer' task.id %}" class="focus-btn">Focus</a>
+                            <form method="POST" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="task_id" value="{{ task.id }}">
+                                <button type="submit" name="delete_task" class="delete-btn" title="Delete task">×</button>
+                            </form>
+                        </div>
+                    </li>
+                {% empty %}
+                    <div class="empty-state">No pending tasks. You're all caught up.</div>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Sidebar Logic
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+        menuBtn.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', toggleSidebar);
+
+        // Clock Logic
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            document.getElementById('date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: '2-digit' }).replace(/,/g, '');
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        // Calendar Logic
+        const now = new Date();
+        const grid = document.getElementById('cal-grid');
+        document.getElementById('cal-month-year').textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        days.forEach(d => { 
+            const el = document.createElement('div'); 
+            el.className = 'day-name'; el.textContent = d; grid.appendChild(el); 
+        });
+        
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        
+        for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+        
+        for (let i = 1; i <= daysInMonth; i++) {
+            const el = document.createElement('div'); 
+            el.className = 'day filled'; el.textContent = i;
+            if (i === now.getDate()) el.classList.add('active');
+            grid.appendChild(el);
+        }
+    </script>
+</body>
+</html>
